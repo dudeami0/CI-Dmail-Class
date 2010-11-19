@@ -281,6 +281,7 @@ class Dmail extends CI_Driver_Library {
 		$this->_headers = $this->_compile_headers();
 		$this->_debug_message('Using protocol ' . $this->protocol . ' for sending.', 'info');
 		if (in_array('Dmail_' . $this->protocol, $this->valid_drivers)) {
+			// Get the protocol to use.
 			$protocol = $this->protocol;
 			if ($this->bcc_batch_mode && count($this->bcc_recipients) > $this->bcc_batch_size) {
 				$count = count($this->bcc_recipients);
@@ -289,6 +290,8 @@ class Dmail extends CI_Driver_Library {
 				$origbcc = $this->bcc_recipients;
 				$this->_bcc_batch_running = false;
 				while ($offset < $count) {
+					// Loop while we still have batches of blind carbon copies to send.
+					// Note that the first run outputs any to and cc addresses also.
 					$length = $count >= $offset + $this->bcc_batch_size ? $this->bcc_batch_size : $count % $this->bcc_batch_size;
 					$this->bcc_recipients = array_slice($origbcc, $offset, $length);
 					$this->_debug_message('BCC header: ' . implode(', ', $this->bcc_recipients));
@@ -296,15 +299,18 @@ class Dmail extends CI_Driver_Library {
 					$offset += $this->bcc_batch_size;
 					$this->_bcc_batch_running = true;
 				}
+				// Reset BCC information.
 				$this->bcc_recipients = $origbcc;
 				$this->_bcc_batch_running = false;
 			} else {
+				// Send using the normal methods.
 				$return = $return && $this->$protocol->send();
 			}
 		} else {
 			$return = false;
 			$this->_debug_message('Protocol ' . $this->protocol . ' is not valid. Use mail, sendmail, or smtp.', 'error');
 		}
+		// Debug a message about its status.
 		if ($return) {
 			$this->_debug_message('Message was successfully sent using ' . $this->protocol . '.', 'info');
 		} else {
@@ -337,10 +343,13 @@ class Dmail extends CI_Driver_Library {
 	 * @param String $disposition Defaults to attachment, can also be inline?
 	 */
 	public function attach($filename, $disposition = 'attachment') {
+		$ftype = next(explode('.', basename($filename)));
+		// If mime type was not determined, send it is application/octet-stream.
+		$mime = isset($this->_mimes[$ftype]) ?  $this->_mimes[$ftype] : 'application/octet-stream';
 		$this->attachments[] = Array(
 			'contents' => '',
 			'filename' => $filename,
-			'filetype' => $this->_mimes[next(explode('.', basename($filename)))],
+			'filetype' => $mime,
 			'disposition' => $disposition,
 			'dynamic' => false
 		);
@@ -354,10 +363,13 @@ class Dmail extends CI_Driver_Library {
 	 * @param String $disposition Defaults to attachment, can also be inline?
 	 */
 	public function dynamic_attach($contents, $filename, $disposition = 'attachment') {
+		$ftype = next(explode('.', basename($filename)));
+		// If mime type was not determined, send it is application/octet-stream.
+		$mime = isset($this->_mimes[$ftype]) ?  $this->_mimes[$ftype] : 'application/octet-stream';
 		$this->attachments[] = Array(
 			'contents' => $contents,
 			'filename' => $filename,
-			'filetype' => $this->_mimes[next(explode('.', basename($filename)))],
+			'filetype' => $mime,
 			'disposition' => $disposition,
 			'dynamic' => true
 		);
