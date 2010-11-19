@@ -515,10 +515,6 @@ class Dmail extends CI_Driver_Library {
 		$this->set_header('From', $this->_format_email($this->sender));
 		// Set the subject, prepare the subject.
 		$this->set_header('Subject', $this->_prep_q_encoding($this->subject));
-		// Set the to header after sanitizing the emails
-		if (!$this->_bcc_batch_running) {
-			$this->set_header('To', implode(', ', $this->_sanitize_emails($this->recipients)));
-		}
 		// Set the MessageID.
 		$this->set_header('Message-ID', $this->_get_message_id());
 		// These will be set incase they were not defined by the user.
@@ -528,8 +524,12 @@ class Dmail extends CI_Driver_Library {
 		$this->set_header('X-Mailer', $this->useragent, false);
 		$this->set_header('User-Agent', $this->useragent, false);
 		$this->set_header('X-Priority', $this->_priorities[$this->priority - 1], false);
-		if (count($this->cc_recipients) > 0)
-			$this->set_header('CC', implode(', ', $this->cc_recipients));
+		// Set the to header after sanitizing the emails
+		if (!$this->_bcc_batch_running) {
+			$this->set_header('To', implode(', ', $this->_sanitize_emails($this->recipients)));
+			if (count($this->cc_recipients) > 0)
+				$this->set_header('CC', implode(', ', $this->cc_recipients));
+		}
 		if (count($this->bcc_recipients) > 0)
 			$this->set_header('BCC', implode(', ', $this->bcc_recipients));
 		foreach ($this->headers AS $name => $value) {
