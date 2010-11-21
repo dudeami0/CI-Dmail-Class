@@ -77,6 +77,8 @@ class Dmail extends CI_Driver_Library {
 	public $bcc_batch_mode = false;
 	/** @var Sets the size of the BCC Batch Mode */
 	public $bcc_batch_size = 200;
+	/** @var Boolean Automatically generate a multipart message if only html or text is given. **/
+	public $send_multipart = true;
 
 	// Variables used within the class
 	/** @var String Used to see if were in safe mode or not. */
@@ -110,51 +112,52 @@ class Dmail extends CI_Driver_Library {
 			@require_once(APPPATH.'config/mimes'.EXT);
 			$this->_mimes = $mimes;
 		}
+
 		// Go through each config options and set it.
 		foreach ($config AS $name => $value) {
 			if (!empty($name) || !empty($value)) {
 				switch ($name) {
-					case 'useragent': $this->useragent = $value;
+					case 'useragent': $this->useragent = (string) $value;
 						break;
-					case 'protocol': $this->protocol = $value;
+					case 'protocol': $this->protocol = (string) $value;
 						break;
-					case 'mailpath': $this->sendmail_path = $value;
+					case 'mailpath': $this->sendmail_path = (string) $value;
 						break;
-					case 'smtp_host': $this->smtp_vars['host'] = $value;
+					case 'smtp_host': $this->smtp_vars['host'] = (string) $value;
 						break;
-					case 'smtp_user': $this->smtp_vars['user'] = $value;
+					case 'smtp_user': $this->smtp_vars['user'] = (string) $value;
 						break;
-					case 'smtp_pass': $this->smtp_vars['pass'] = $value;
+					case 'smtp_pass': $this->smtp_vars['pass'] = (string) $value;
 						break;
-					case 'smtp_port': $this->smtp_vars['port'] = $value;
+					case 'smtp_port': $this->smtp_vars['port'] = (int)$value;
 						break;
-					case 'smtp_auth': $this->smtp_vars['auth'] = $value;
+					case 'smtp_timeout': $this->smtp_vars['timeout'] = (int) $value;
 						break;
-					case 'smtp_timeout': $this->smtp_vars['timeout'] = $value;
+					case 'wordwrap': $this->wordwrap = (bool) $value;
 						break;
-					case 'wordwrap': $this->wordwrap = $value;
+					case 'wrapchars': $this->wordwrap_width = (int) $value;
 						break;
-					case 'wrapchars': $this->wordwrap_width = $value;
+					case 'mailtype': $this->mailtype = (string) $value;
 						break;
-					case 'mailtype': $this->mailtype = $value;
+					case 'charset': $this->charset = (string) $value;
 						break;
-					case 'charset': $this->charset = $value;
+					case 'validate': $this->validity_check = (bool) $value;
 						break;
-					case 'validate': $this->validity_check = $value;
+					case 'priority': $this->priority = (int) $value;
 						break;
-					case 'priority': $this->priority = $value;
+					case 'crlf': $this->crlf = (string) $value;
 						break;
-					case 'crlf': $this->crlf = $value;
+					case 'newline': $this->newline = (string)$value;
 						break;
-					case 'newline': $this->newline = $value;
+					case 'bcc_batch_mode': $this->bcc_batch_mode = (int) $value;
 						break;
-					case 'bcc_batch_mode': $this->bcc_batch_mode = $value;
+					case 'bcc_batch_size': $this->bcc_batch_size = (int) $value;
 						break;
-					case 'bcc_batch_size': $this->bcc_batch_size = $value;
-						break;
+					case 'send_multipart': $this->send_multipart = (bool) $value;
 				}
 			}
 		}
+		$this->smtp_vars['auth'] = (!empty($this->smtp_vars['user']) && !empty($this->smtp_vars['pass']));
 	}
 
 	/**
@@ -436,6 +439,8 @@ class Dmail extends CI_Driver_Library {
 	 */
 	public function _compile_message() {
 		$return = false;
+		// First off create alternative content if requested.
+		$this->_compile_alt_message();
 		$htmlCheck = !empty($this->html_contents);
 		$textCheck = !empty($this->text_contents);
 		$attachCheck = count($this->attachments) > 0;
@@ -624,6 +629,42 @@ class Dmail extends CI_Driver_Library {
 			}
 		}
 		return $return;
+	}	/**
+	 * Build alternative plain text message
+	 *
+	 * This function provides the raw message for use in plain-text headers of HTML-formatted emails.
+	 * If the user hasn't specified his own alternative message it creates one by stripping the HTML
+	 *
+	 * Based off the _get_alt_message() method of Codeigniters Email Class
+	 *
+	 * @access	private
+	 * @return	string
+	 */
+	function _compile_alt_message() {
+		$htmlCheck = !empty($this->html_contents) && empty($this->text_contents) && $this->send_multipart;
+		$textCheck = empty($this->html_contents) && !empty($this->text_contents) && $this->send_multipart;
+		if ($htmlCheck) {
+			// Check if the html message is wrapped in a body...
+			$content = preg_replace("/.*<body>(.*)<\/body>.*/is", "$1", $this->html_contents);
+			$content = trim(strip_tags($content));
+			$content = str_replace("\t", "", $content);
+			$content = preg_replace(
+					Array('#<!--(.*)--\>#', '#((?:[\\r\\n]|[\\n]){2,})#'),
+					Array("", $this->newline . $this->newline),
+					$content
+			);
+			$this->text($content);
+		}
+		if ($textCheck) {
+			// Wrap a simple html, head and body around it.
+			$content = "<html>" . $this->newline;
+			$content .= "<head><title>" . $this->subject . "</title></head>" . $this->newline;
+			$content .= "<body>" . $this->newline;
+			$content .= nl2br($this->text_contents) . $this->newline;
+			$content .= "</body>" . $this->newline;
+			$content .= "</html>" . $this->newline;
+			$this->html($content);
+		}
 	}
 
 	/**
