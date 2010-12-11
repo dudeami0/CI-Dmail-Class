@@ -166,7 +166,8 @@ class Dmail extends CI_Driver_Library {
 	 * @return Dmail
 	 */
 	public function to($address) {
-		$this->_add_recipient('to', func_get_args());
+		$addresses = func_get_args();
+		$this->_add_recipient('to', $addresses);
 		return $this;
 	}
 
@@ -176,7 +177,8 @@ class Dmail extends CI_Driver_Library {
 	 * @return Dmail
 	 */
 	public function cc($address) {
-		$this->_add_recipient('cc', func_get_args());
+		$addresses = func_get_args();
+		$this->_add_recipient('cc', $addresses);
 		return $this;
 	}
 
@@ -186,7 +188,8 @@ class Dmail extends CI_Driver_Library {
 	 * @return Dmail
 	 */
 	public function bcc($address) {
-		$this->_add_recipient('bcc', func_get_args());
+		$addresses = func_get_args();
+		$this->_add_recipient('bcc', $addresses);
 		return $this;
 	}
 
